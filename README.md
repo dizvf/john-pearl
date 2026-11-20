@@ -69,6 +69,12 @@ environment variables as `DATABASE_URL`. Nothing else changes. Set
 
 The schema is created automatically at startup.
 
+Storage is opened **after** the server is already listening, and the proxy
+does not depend on it. If the database cannot be reached, `/proxy` keeps
+working and only the account and chat endpoints report themselves unavailable.
+PGlite is given a directory only after a real write test passes, because handed
+one it cannot use it blocks rather than failing.
+
 ## Run locally
 
 ```bash
