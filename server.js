@@ -20,6 +20,32 @@ const port = process.env.PORT || 3000;
  */
 let store = null;
 let accountRoutes = null;
+let storageStatus = "starting";
+
+/**
+ * A short, non-identifying reason a connection failed, safe to serve publicly:
+ * the error class only, never the host, the user or the connection string.
+ */
+function classify(error) {
+  const code = error?.code;
+  if (typeof code === "string" && /^[A-Z0-9_]+$/.test(code)) return code;
+  // Order matters: the wrapped message names both TLS attempts, so the
+  // specific network and auth failures have to be matched before anything
+  // that merely mentions TLS.
+  const text = String(error?.message || "").toLowerCase();
+  if (text.includes("enotfound")) return "ENOTFOUND";
+  if (text.includes("econnrefused")) return "ECONNREFUSED";
+  if (text.includes("econnreset")) return "ECONNRESET";
+  if (text.includes("etimedout") || text.includes("timeout") || text.includes("timed out")) return "TIMEOUT";
+  if (text.includes("password authentication")) return "BAD_PASSWORD";
+  if (text.includes("pg_hba")) return "NOT_ALLOWED_FROM_HERE";
+  if (text.includes("does not exist")) return "NO_SUCH_DATABASE_OR_ROLE";
+  if (text.includes("endpoint")) return "ENDPOINT_NOT_SPECIFIED";
+  if (text.includes("certificate") || text.includes("self signed") || text.includes("not support ssl")) {
+    return "TLS_PROBLEM";
+  }
+  return "UNKNOWN";
+}
 
 async function openStorage() {
   const [db, auth, chatmod] = await Promise.all([
@@ -56,7 +82,9 @@ app.get("/login", page("login.html"));
 app.get("/signup", page("login.html"));
 app.get("/chat", page("chat.html"));
 app.get("/proxy", page("proxy.html"));
-app.get("/healthz", (_req, res) => res.type("text").send(store ? "ok" : "ok (no storage)"));
+app.get("/healthz", (_req, res) =>
+  res.type("text").send(`ok\nstorage=${storageStatus}`)
+);
 
 // Resolved at request time, so the routes exist from the first moment and
 // simply report themselves unavailable until storage finishes opening.
@@ -347,10 +375,12 @@ server.listen(port, () => console.log(`listening on :${port}`));
       const opened = await openStorage();
       store = opened;
       accountRoutes = buildAccountRoutes(opened);
+      storageStatus = `ready:${opened.db.backend}`;
       console.log("accounts and chat are ready");
       return;
     } catch (error) {
       const last = attempt === waits.length - 1;
+      storageStatus = `${last ? "failed" : "retrying"}:${classify(error)}`;
       console.error(
         `storage attempt ${attempt + 1}/${waits.length} failed: ${error?.message || error}` +
         (last ? "" : " — retrying")
