@@ -33,7 +33,9 @@ your server's IP is what the target sees.
 
 ```
 server.js            routes, API, and the two WebSocket endpoints
-lib/db.js            schema and queries
+lib/db.js            picks a storage backend and forwards to it
+lib/pgstore.js       Postgres schema and queries
+lib/memstore.js      the in-process fallback
 lib/auth.js          password hashing, sessions, rate limiting
 lib/chat.js          the live chat socket hub
 public/index.html    main page
@@ -50,17 +52,20 @@ Two WebSocket paths share one upgrade handler: `/wisp/` carries proxy traffic,
 
 ## Storage
 
-`lib/db.js` speaks one SQL dialect to two backends:
+`lib/db.js` picks a backend and forwards to it. Both expose the same
+functions and the same row shapes:
 
 | `DATABASE_URL` | Backend | Data |
 | --- | --- | --- |
-| set | real Postgres | survives deploys, shared across nodes |
-| not set | PGlite (Postgres compiled to WASM, in process) | **resets on every deploy** |
+| set | real Postgres (`lib/pgstore.js`) | survives deploys, shared across nodes |
+| not set | plain objects in process (`lib/memstore.js`) | **gone on every restart** |
 
-It runs either way, so you can try it before setting anything up. But Enzonic
-deployments are immutable and can run on more than one node, which means the
-PGlite file is scratch space: accounts and messages vanish on the next deploy,
-and two nodes would not see the same data.
+It runs either way, so you can try it before setting anything up. The fallback
+is deliberately boring — no native module, no WebAssembly, no disk — because
+anything exotic is one more thing that can refuse to start on a small
+container. The trade is that it holds everything in one process, so accounts
+and messages vanish when it restarts and two nodes would not see the same
+data.
 
 **Before anyone relies on it**, create a database (Enzonic Databases has a free
 tier on the same account) and put its connection string in Enzonic's
@@ -72,8 +77,6 @@ The schema is created automatically at startup.
 Storage is opened **after** the server is already listening, and the proxy
 does not depend on it. If the database cannot be reached, `/proxy` keeps
 working and only the account and chat endpoints report themselves unavailable.
-PGlite is given a directory only after a real write test passes, because handed
-one it cannot use it blocks rather than failing.
 
 ## Run locally
 
