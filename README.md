@@ -1,25 +1,30 @@
 # Pearl
 
-A self-hosted web proxy: a page with a URL bar that loads sites through your
-own server instead of the browser's direct connection.
+A self-hosted web proxy with accounts and chat. Three parts:
+
+- **`/proxy`** — a URL bar that loads sites through your server instead of the
+  browser's direct connection.
+- **`/chat`** — accounts, friends, direct messages and group rooms, live over
+  a WebSocket.
+- **`/`** — the main page tying them together.
 
 Built on [Scramjet](https://github.com/MercuryWorkshop/scramjet) (Mercury
 Workshop). Ultraviolet, which most older guides still point at, is deprecated
 and no longer maintained — its own repo says so. Scramjet is the successor.
 
-## Why this is not a single HTML file
+## Why the proxy is not a single HTML file
 
 A proxy cannot be one static `.html`. Three pieces are required, and two of
 them cannot live in a static file:
 
-1. **The page** (`public/index.html`) — the URL bar and the iframe.
+1. **The page** — the URL bar and the iframe.
 2. **A service worker** (`public/sw.js`) — Scramjet rewrites pages client-side
    and intercepts every request the proxied site makes. That interception *is*
    a service worker, so the site must be served over **HTTPS** (or
    `localhost`); service workers are disabled on plain `http://` origins.
-3. **A Wisp server** (`/wisp/`) — the part that actually reaches the internet.
-   The browser cannot open raw sockets, so it tunnels TCP over a WebSocket to
-   your server, which makes the real outbound connection.
+3. **A Wisp server** (`/wisp/`) — the part that reaches the internet. Browsers
+   cannot open raw sockets, so it tunnels TCP over a WebSocket to your server,
+   which makes the real outbound connection.
 
 So the browser never talks to the target site. It talks to your server, and
 your server's IP is what the target sees.
@@ -27,19 +32,79 @@ your server's IP is what the target sees.
 ## Layout
 
 ```
-server.js           Express: serves the proxy runtime and the /wisp/ tunnel
-public/index.html   the UI
-public/sw.js        the service worker that intercepts proxied requests
-node_modules/       bundled in the zip, so no install step is needed
+server.js            routes, API, and the two WebSocket endpoints
+lib/db.js            schema and queries
+lib/auth.js          password hashing, sessions, rate limiting
+lib/chat.js          the live chat socket hub
+public/index.html    main page
+public/login.html    sign in / create account
+public/chat.html     the chat app
+public/proxy.html    the proxy
+public/style.css     shared theme
+public/scene.svg     the sunset artwork, used as a background by every page
+public/sw.js         service worker for the proxy
 ```
 
-Everything is served from pinned packages in `node_modules`. Nothing is
-downloaded at startup, so the server boots with no network access of its own
-and cannot break because an upstream package moved.
+Two WebSocket paths share one upgrade handler: `/wisp/` carries proxy traffic,
+`/ws` carries chat. Everything else is ordinary HTTP.
 
-### Versions are pinned on purpose
+## Storage
 
-Do not run `npm update` on this. The working combination is narrow:
+`lib/db.js` speaks one SQL dialect to two backends:
+
+| `DATABASE_URL` | Backend | Data |
+| --- | --- | --- |
+| set | real Postgres | survives deploys, shared across nodes |
+| not set | PGlite (Postgres compiled to WASM, in process) | **resets on every deploy** |
+
+It runs either way, so you can try it before setting anything up. But Enzonic
+deployments are immutable and can run on more than one node, which means the
+PGlite file is scratch space: accounts and messages vanish on the next deploy,
+and two nodes would not see the same data.
+
+**Before anyone relies on it**, create a database (Enzonic Databases has a free
+tier on the same account) and put its connection string in Enzonic's
+environment variables as `DATABASE_URL`. Nothing else changes. Set
+`DATABASE_SSL=off` if your database does not use TLS.
+
+The schema is created automatically at startup.
+
+## Run locally
+
+```bash
+npm install
+npm start          # http://localhost:3000
+```
+
+`localhost` counts as a secure origin, so the service worker works without TLS.
+
+## Hosting
+
+| Setting | Value |
+| --- | --- |
+| Install command | `npm install` |
+| Build command | *(none)* |
+| Output directory | *(leave empty)* |
+| Start command | `node server.js` (from `package.json`) |
+| Node version | 20 or newer |
+| Port | taken from `PORT` |
+
+**HTTPS is mandatory** for the proxy — on a plain `http://` domain the service
+worker will not register, and the page says so instead of proxying. Chat works
+either way but sets a secure session cookie only over HTTPS.
+
+The host must also allow **WebSocket upgrades** and **outbound TCP**. On
+Enzonic this happens by itself: because the app listens on a port, the builder
+puts it in server mode rather than functions, which the build log states.
+
+If you put anything in front of this, pass `Upgrade` and `Connection` through
+for `/wisp/` and `/ws`, and do not let a CDN cache `/sw.js` — a stale service
+worker means a stale proxy for everyone.
+
+## Versions are pinned on purpose
+
+Do not run `npm update` on the Scramjet packages. The working combination is
+narrow:
 
 | Package | Version |
 | --- | --- |
@@ -52,93 +117,60 @@ Do not run `npm update` on this. The working combination is narrow:
 The npm `latest` tag for `@mercuryworkshop/scramjet` is **1.1.0**, which is the
 *old* line — it prints "please upgrade to v2" on load and does not work with
 `scramjet-controller` at all. The 2.x line is alpha and only on the `alpha`
-tag. Installing "the latest version" of these packages breaks the proxy.
+tag. Installing "the latest version" breaks the proxy.
 
-Two other things that cost me time, in case you edit the page:
+Two more things that cost time, if you edit `proxy.html`:
 
-- `scramjet.js` is what defines `window.$scramjet`, and `controller.api.js`
-  destructures it *at parse time*. They cannot be parallel `<script>` tags;
-  they have to be loaded in sequence, which is why `index.html` loads them
-  through a `loadScript()` helper.
-- Controller paths are set by mutating `$scramjetController.config`. They are
-  not constructor arguments, and the library's defaults do not match the
-  shipped filenames.
+- `scramjet.js` defines `window.$scramjet`, and `controller.api.js`
+  destructures it *at parse time*. They cannot be parallel `<script>` tags.
+- Controller paths are set by mutating `$scramjetController.config`; they are
+  not constructor arguments, and the defaults do not match the shipped
+  filenames.
 
-## Run locally
+## How the chat behaves
 
-```bash
-npm start          # http://localhost:3000
-```
+- Usernames are 3–20 characters. The lowercase form is the unique handle, so
+  `Lance` and `lance` are the same account and you can sign in with either.
+- Passwords are hashed with scrypt and a per-user salt. Login compares in
+  constant time and gives the same answer for a wrong password as for a
+  username that does not exist, so the form cannot be used to discover who has
+  an account.
+- Friend requests must be accepted before a DM can be opened, and only your own
+  friends can be pulled into a group.
+- Membership is checked on the server for every read and every message. The
+  client's claim about which rooms it is in is never trusted.
+- Messages render as text, never as HTML.
+- Sessions are httpOnly, `SameSite=Lax` cookies, secure over HTTPS.
 
-`localhost` counts as a secure origin, so the service worker works without TLS.
-If you cloned this from git rather than using the zip, run `npm install` first.
-
-## Hosting the zip
-
-The zip is self-contained — unzip it, point the panel at it, and start it.
-
-| Setting | Value |
-| --- | --- |
-| Start command | `node server.js` |
-| Install command | *none needed; `node_modules` is included* |
-| Node version | 20 or newer |
-| Port | taken from `PORT`, else 3000 |
-
-**HTTPS is mandatory**, not a nice-to-have. On a plain `http://` domain the
-service worker will not register and the page will tell you so instead of
-proxying anything.
-
-### The two things that decide whether a host can run this
-
-1. **WebSocket upgrades must reach `/wisp/`.** The proxy does nothing without
-   this. A host that only runs short-lived serverless functions cannot run it.
-2. **Outbound TCP must be allowed.** Wisp opens real connections to arbitrary
-   hosts and ports. Hosts that force all outbound traffic through their own
-   HTTP proxy will break TLS inside the tunnel.
-
-On Enzonic specifically: I could not reach `enzonic.com` to check, so verify
-both. Their **Cloud** Node.js runtime (a long-lived process) is the better bet
-than anything function-based, and **Deploy** supplies automatic HTTPS and
-`enzonic.dev` subdomains, which requirement above needs.
-
-If you put anything in front of this, pass `Upgrade` and `Connection` through
-for `/wisp/`, and do not let a CDN cache `/sw.js` — a stale service worker
-means a stale proxy for everyone.
-
-### Checking a deployment
-
-Open the site and watch the browser console.
-
-- Green dot and "Ready." — the service worker registered and the controller
-  started. The proxy itself is working.
-- Pages fail with an **SSL or connect error** — the page is fine and the host
-  is blocking requirement 2 above.
-- Status stuck or complaining about secure context — you are on `http://`.
+Rate limits are per process and in memory, so they reset on deploy and are not
+shared between nodes. They are deliberately loose on sign-up because a whole
+school behind one NAT shares a single IP.
 
 ## What has been tested
 
-Verified in headless Chromium: assets serve, the service worker registers, the
-controller reaches ready, navigation rewrites to the `/~/sj/...` prefix, and a
-page fetched entirely through the Wisp tunnel renders in the iframe with no
-console errors.
+Automated, against a running server: 32 API and WebSocket checks (sign-up
+validation, duplicate names, wrong passwords, session handling, friend
+requests, DM creation, group membership, message delivery and persistence,
+oversized messages) and 14 browser checks driving two real sessions at once
+(live friend request, live message delivery both ways, markup escaped rather
+than rendered, mobile layout, and the proxy still reaching ready).
 
-**Not** verified: fetching a real external HTTPS site. The sandbox this was
-built in routes outbound HTTPS through an intercepting proxy, and
-libcurl-in-WASM does its own TLS with its own CA store, so external requests
-fail there with `SSL connect error` regardless of the code. That hop is the
-first thing to check on a real host.
+**Not** verified anywhere: nothing outstanding in the app itself. Behaviour
+with `DATABASE_URL` pointed at a real Postgres has not been exercised, since
+no database was configured at the time of writing.
 
 ## Things worth knowing before you point people at it
 
-- **It is an open proxy.** Anyone with the URL browses through your server's IP.
-  Whatever they do looks like it came from you, and that IP can get blocklisted.
-  If it is not meant to be public, put a login in front of it.
-- Private and loopback addresses are blocked in `server.js`, which is what
-  stops visitors from reaching things only your server can see — its own
-  localhost, the host's internal network, cloud metadata endpoints. Leave those
-  settings alone.
-- Scramjet 2.x is **alpha**. Expect sites to break; heavily-scripted apps like
-  Google are the usual casualties.
+- **The proxy is open.** Anyone with the URL browses through your server's IP.
+  Whatever they do looks like it came from you, and that IP can get
+  blocklisted. Accounts currently gate chat, not the proxy; gating the proxy
+  too is a small change.
+- Private and loopback addresses are blocked in `server.js`, which stops
+  visitors reaching things only your server can see — its own localhost, the
+  host's internal network, cloud metadata endpoints. Leave that alone.
+- Scramjet 2.x is **alpha**. Expect some heavily-scripted sites to break.
+- There is no moderation, no message deletion and no account recovery. If you
+  forget a password, the account is gone.
 - Hosts generally have terms about proxies, and school and workplace networks
-  generally have rules about getting around their filters. Those rules are not
-  my call, but they are worth knowing before you hand the link around.
+  generally have rules about getting around their filters. Worth knowing before
+  you hand the link around.

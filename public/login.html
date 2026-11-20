@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0416" />
+<title>Sign in &middot; Pearl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/style.css" />
+<style>
+  body { display: flex; flex-direction: column; min-height: 100%; }
+  main { position: relative; flex: 1; display: grid; place-items: center; padding: 34px 20px 54px; overflow: hidden; }
+
+  .card {
+    position: relative;
+    z-index: 2;
+    width: min(400px, 100%);
+    padding: 30px 28px 26px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    background: rgba(13, 6, 24, 0.82);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 43, 144, 0.08);
+  }
+
+  .card h1 {
+    margin: 12px 0 4px;
+    font-family: Anton, Impact, sans-serif;
+    font-size: 30px;
+    letter-spacing: 0.03em;
+    font-weight: 400;
+  }
+  .card .sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+
+  .switcher {
+    display: flex;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.35);
+    margin-bottom: 22px;
+  }
+  .switcher button {
+    flex: 1;
+    height: 32px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: 500 11.5px/1 Inter, sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+  }
+  .switcher button[aria-selected="true"] { background: var(--sunset); color: #2a0616; font-weight: 600; }
+
+  .row { margin-bottom: 15px; }
+  .hint { margin: 7px 0 0; font-size: 11.5px; color: rgba(168, 144, 194, 0.8); }
+  form .btn-primary { width: 100%; height: 42px; margin-top: 4px; }
+  .back { display: block; margin-top: 18px; text-align: center; font-size: 12.5px; color: var(--muted); text-decoration: none; }
+  .back:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<header class="chrome">
+  <a class="brand" href="/">PEARL</a>
+  <nav class="tabs">
+    <a class="tab" href="/proxy">Proxy</a>
+    <a class="tab" href="/chat">Chat</a>
+  </nav>
+</header>
+
+<main>
+  <div class="scene-bg" aria-hidden="true"></div>
+  <div class="scrim" aria-hidden="true" style="background:linear-gradient(180deg,rgba(7,3,17,.86),rgba(7,3,17,.62) 40%,rgba(7,3,17,.9))"></div>
+
+  <div class="card">
+    <div class="switcher" role="tablist">
+      <button id="tabIn" role="tab" aria-selected="true">Sign in</button>
+      <button id="tabUp" role="tab" aria-selected="false">Create account</button>
+    </div>
+
+    <span class="rule"></span>
+    <h1 id="heading">Welcome back</h1>
+    <p class="sub" id="sub">Sign in to reach your chats.</p>
+
+    <p class="notice" id="error" hidden></p>
+
+    <form id="form" autocomplete="on">
+      <div class="row">
+        <label class="label" for="username">Username</label>
+        <input class="input" id="username" name="username" autocomplete="username"
+               spellcheck="false" required maxlength="20" />
+        <p class="hint" id="nameHint" hidden>3 to 20 characters. Letters, numbers, dots, dashes, underscores.</p>
+      </div>
+
+      <div class="row">
+        <label class="label" for="password">Password</label>
+        <input class="input" id="password" name="password" type="password"
+               autocomplete="current-password" required maxlength="200" />
+        <p class="hint" id="passHint" hidden>At least 8 characters.</p>
+      </div>
+
+      <button class="btn btn-primary" id="submit" type="submit">SIGN IN</button>
+    </form>
+
+    <a class="back" href="/">&larr; Back to the main page</a>
+  </div>
+</main>
+
+<script type="module">
+const els = {
+  tabIn: document.getElementById("tabIn"),
+  tabUp: document.getElementById("tabUp"),
+  heading: document.getElementById("heading"),
+  sub: document.getElementById("sub"),
+  error: document.getElementById("error"),
+  form: document.getElementById("form"),
+  username: document.getElementById("username"),
+  password: document.getElementById("password"),
+  submit: document.getElementById("submit"),
+  nameHint: document.getElementById("nameHint"),
+  passHint: document.getElementById("passHint"),
+};
+
+const params = new URLSearchParams(location.search);
+const next = params.get("next") || "/chat";
+let mode = location.pathname === "/signup" ? "signup" : "signin";
+
+function paint() {
+  const up = mode === "signup";
+  els.tabIn.setAttribute("aria-selected", String(!up));
+  els.tabUp.setAttribute("aria-selected", String(up));
+  els.heading.textContent = up ? "Make an account" : "Welcome back";
+  els.sub.textContent = up
+    ? "Pick a name people will add you by."
+    : "Sign in to reach your chats.";
+  els.submit.textContent = up ? "CREATE ACCOUNT" : "SIGN IN";
+  els.password.autocomplete = up ? "new-password" : "current-password";
+  els.nameHint.hidden = !up;
+  els.passHint.hidden = !up;
+  els.error.hidden = true;
+  history.replaceState(null, "", (up ? "/signup" : "/login") + location.search);
+}
+
+els.tabIn.addEventListener("click", () => { mode = "signin"; paint(); });
+els.tabUp.addEventListener("click", () => { mode = "signup"; paint(); });
+
+function fail(message) {
+  els.error.textContent = message;
+  els.error.hidden = false;
+  els.submit.disabled = false;
+}
+
+els.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.error.hidden = true;
+  els.submit.disabled = true;
+
+  try {
+    const res = await fetch(mode === "signup" ? "/api/signup" : "/api/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        username: els.username.value,
+        password: els.password.value,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return fail(data.error || "That did not work. Try again.");
+    location.href = next;
+  } catch {
+    fail("Could not reach the server.");
+  }
+});
+
+// Already signed in? Skip the form.
+try {
+  const me = await (await fetch("/api/me")).json();
+  if (me.user) location.replace(next);
+} catch { /* offline, show the form */ }
+
+paint();
+</script>
+</body>
+</html>

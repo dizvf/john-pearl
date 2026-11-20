@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0416" />
+<title>Proxy &middot; Pearl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/style.css" />
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; }
+
+  .nav { display: flex; gap: 5px; }
+
+  form { display: flex; flex: 1 1 260px; gap: 8px; min-width: 180px; align-items: center; }
+  .field { position: relative; flex: 1; display: flex; align-items: center; min-width: 0; }
+  .field::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--pink);
+    box-shadow: 0 0 9px var(--pink);
+    opacity: 0.75;
+  }
+
+  #url {
+    width: 100%;
+    height: 38px;
+    padding: 0 16px 0 31px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.42);
+    color: var(--text);
+    font: 500 13.5px/1 Inter, sans-serif;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  }
+  #url::placeholder {
+    color: rgba(168, 144, 194, 0.72);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    font-size: 11.5px;
+    text-transform: uppercase;
+  }
+  #url:focus {
+    outline: none;
+    border-color: rgba(255, 43, 144, 0.8);
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0 4px rgba(255, 43, 144, 0.13), 0 0 22px rgba(255, 43, 144, 0.22);
+  }
+
+  .go { height: 38px; padding: 0 20px; border-radius: 999px; cursor: pointer; }
+
+  main { position: relative; flex: 1; min-height: 0; background: #000; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+  .loadbar {
+    position: absolute;
+    top: 0; left: 0;
+    height: 2px;
+    width: 0;
+    z-index: 5;
+    background: var(--sunset);
+    box-shadow: 0 0 12px rgba(255, 43, 144, 0.8);
+    opacity: 0;
+    transition: width 0.5s ease, opacity 0.3s;
+  }
+  .loadbar.run { width: 82%; opacity: 1; transition: width 9s cubic-bezier(0.1, 0.8, 0.2, 1), opacity 0.2s; }
+  .loadbar.done { width: 100%; opacity: 0; transition: width 0.25s, opacity 0.45s 0.15s; }
+
+  .splash { position: absolute; inset: 0; overflow: hidden; background: var(--ink); }
+  .splash.hidden { display: none; }
+
+  .copy {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 0 clamp(22px, 7vw, 116px);
+    gap: 15px;
+    max-width: min(780px, 94%);
+  }
+
+  .wordmark { font-size: clamp(60px, 15vw, 148px); }
+
+  .tagline {
+    margin: 0;
+    max-width: 34ch;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: rgba(247, 238, 251, 0.74);
+  }
+
+  .splash-status {
+    margin: 6px 0 0;
+    max-width: 46ch;
+    font: 500 11.5px/1.6 var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .splash-status[data-state="error"] {
+    color: #ff8e99;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-size: 12.5px;
+  }
+
+  @media (max-width: 720px) {
+    :root { --chrome-h: 54px; }
+    .chrome { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+    .brand { font-size: 20px; }
+    .tabs { display: none; }
+    form { order: 3; flex-basis: 100%; }
+    .pip { margin-left: auto; }
+    .icon { width: 30px; height: 30px; }
+    .scrim {
+      background: linear-gradient(180deg, rgba(7,3,17,.72) 0%, rgba(7,3,17,.18) 26%, rgba(7,3,17,.8) 58%, rgba(7,3,17,.97) 100%);
+    }
+    .copy { justify-content: flex-end; padding: 0 24px clamp(26px, 8vh, 64px); max-width: 100%; gap: 13px; }
+    .wordmark { font-size: clamp(64px, 18vw, 150px); }
+    .tagline { max-width: 32ch; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<header class="chrome">
+  <a class="brand" href="/">PEARL</a>
+
+  <nav class="tabs">
+    <a class="tab" href="/proxy" aria-current="page">Proxy</a>
+    <a class="tab" href="/chat">Chat</a>
+  </nav>
+
+  <div class="nav">
+    <button class="icon" id="back"    title="Back"    aria-label="Back"    disabled>&#8592;</button>
+    <button class="icon" id="forward" title="Forward" aria-label="Forward" disabled>&#8594;</button>
+    <button class="icon" id="reload"  title="Reload"  aria-label="Reload"  disabled>&#8635;</button>
+  </div>
+
+  <form id="bar" autocomplete="off">
+    <span class="field">
+      <input id="url" type="text" placeholder="Enter a site or search" spellcheck="false" aria-label="Address" />
+    </span>
+    <button class="btn btn-primary go" id="go" type="submit" disabled>GO</button>
+  </form>
+
+  <span class="pip">
+    <span class="dot" id="dot" data-state="booting"></span>
+    <span id="status">Booting</span>
+  </span>
+</header>
+
+<main>
+  <div class="loadbar" id="loadbar"></div>
+  <iframe id="frame" title="Proxied page"></iframe>
+
+  <div class="splash" id="splash">
+    <div class="scene-bg" aria-hidden="true"></div>
+    <div class="scrim" aria-hidden="true"></div>
+
+    <div class="copy">
+      <span class="rule"></span>
+      <p class="eyebrow">Encrypted relay &middot; Leonida</p>
+      <h1 class="wordmark">PEARL</h1>
+      <p class="tagline">Every request leaves from your server, not your browser.</p>
+      <p class="splash-status" id="splashStatus">Starting the proxy&hellip;</p>
+    </div>
+  </div>
+</main>
+
+<script>
+const els = {
+  dot: document.getElementById("dot"),
+  status: document.getElementById("status"),
+  splashStatus: document.getElementById("splashStatus"),
+  splash: document.getElementById("splash"),
+  frame: document.getElementById("frame"),
+  loadbar: document.getElementById("loadbar"),
+  url: document.getElementById("url"),
+  go: document.getElementById("go"),
+  back: document.getElementById("back"),
+  forward: document.getElementById("forward"),
+  reload: document.getElementById("reload"),
+  bar: document.getElementById("bar"),
+};
+
+function setState(state, short, detail) {
+  els.dot.dataset.state = state;
+  els.status.textContent = short;
+  els.splashStatus.dataset.state = state;
+  els.splashStatus.textContent = detail || short;
+}
+
+function startLoading() {
+  els.loadbar.classList.remove("done");
+  void els.loadbar.offsetWidth;
+  els.loadbar.classList.add("run");
+  clearTimeout(startLoading.timer);
+  startLoading.timer = setTimeout(() => {
+    els.loadbar.classList.remove("run");
+    els.loadbar.classList.add("done");
+  }, 2600);
+}
+
+// "example.com" -> https://example.com ; "how to cook rice" -> a search.
+function normalize(input) {
+  const value = input.trim();
+  if (!value) return null;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return value;
+  if (/^[^\s/?#:]+\.[^\s/?#:]{2,}([/?#]|$)/.test(value)) return "https://" + value;
+  return "https://duckduckgo.com/?q=" + encodeURIComponent(value);
+}
+
+let frame = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error("Failed to load " + src));
+    document.head.appendChild(el);
+  });
+}
+
+// A fresh registration may still be installing on first visit.
+function activeWorker(registration) {
+  if (registration.active) return Promise.resolve(registration.active);
+  const worker = registration.installing || registration.waiting;
+  if (!worker) return Promise.reject(new Error("The service worker never became active."));
+  return new Promise((resolve) => {
+    if (worker.state === "activated") return resolve(worker);
+    worker.addEventListener("statechange", function onChange() {
+      if (worker.state === "activated") {
+        worker.removeEventListener("statechange", onChange);
+        resolve(worker);
+      }
+    });
+  });
+}
+
+async function boot() {
+  if (!window.isSecureContext) {
+    throw new Error(
+      "This page needs HTTPS (or localhost). Service workers are disabled on plain http:// origins, " +
+      "and the proxy cannot run without one."
+    );
+  }
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("This browser has no service worker support, so the proxy cannot run.");
+  }
+
+  const registration = await navigator.serviceWorker.register("/sw.js", {
+    type: "classic",
+    updateViaCache: "none",
+  });
+  await navigator.serviceWorker.ready;
+  const serviceworker = await activeWorker(registration);
+
+  // Load order matters. scramjet.js is what defines window.$scramjet, and
+  // controller.api.js destructures it the moment it is parsed -- so these
+  // cannot be plain parallel <script> tags.
+  await loadScript("/scram/scramjet.js");
+  await loadScript("/controller/controller.api.js");
+  await loadScript("/scram/scramjet-utils.js");
+  await loadScript("/clients/libcurl-client.js");
+
+  // The controller reads these off a shared object; they are not constructor
+  // arguments. They must match the routes server.js exposes.
+  const { Controller, config } = window.$scramjetController;
+  config.scramjetPath = "/scram/scramjet.js";
+  config.wasmPath = "/scram/scramjet.wasm";
+  config.injectPath = "/controller/controller.inject.js";
+
+  const wispUrl =
+    (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/";
+
+  const controller = new Controller({
+    serviceworker,
+    transport: new window.LibcurlTransport.LibcurlClient({ wisp: wispUrl }),
+  });
+
+  if (typeof controller.wait === "function") await controller.wait();
+  frame = controller.createFrame(els.frame, { plugins: [] });
+
+  for (const b of [els.go, els.back, els.forward, els.reload]) b.disabled = false;
+  setState("ready", "Ready", "Ready — enter a site above");
+  els.url.focus();
+}
+
+els.bar.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const target = normalize(els.url.value);
+  if (!target || !frame) return;
+  els.splash.classList.add("hidden");
+  startLoading();
+  frame.go(target);
+});
+
+els.back.addEventListener("click", () => { if (frame) { startLoading(); frame.back(); } });
+els.forward.addEventListener("click", () => { if (frame) { startLoading(); frame.forward(); } });
+els.reload.addEventListener("click", () => { if (frame) { startLoading(); frame.reload(); } });
+
+boot().catch((error) => {
+  console.error(error);
+  setState("error", "Error", error.message || String(error));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+/* Pearl — shared theme.
+   Palette approximates the GTA VI logo gradient: blue and violet at the top,
+   hot pink through the middle, orange at the base. Rockstar publishes no
+   official values, so these are sampled approximations. */
+
+:root {
+  --blue:    #3b63d6;
+  --violet:  #9b55c6;
+  --pink:    #ff2b90;
+  --magenta: #f648ac;
+  --coral:   #eb6a7c;
+  --orange:  #e28f48;
+  --amber:   #ffc46b;
+
+  --void:  #070311;
+  --ink:   #0d0618;
+  --panel: rgba(255, 255, 255, 0.045);
+  --text:  #f7eefb;
+  --muted: #a890c2;
+  --line:  rgba(255, 255, 255, 0.10);
+
+  --ok:   #39e08a;
+  --bad:  #ff4d5e;
+
+  --sunset: linear-gradient(90deg, var(--pink), var(--coral) 55%, var(--amber));
+  --spectrum: linear-gradient(90deg, var(--blue), var(--violet), var(--pink), var(--coral), var(--amber));
+  --chrome-h: 58px;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+/* Any rule that sets `display` outranks the browser's own [hidden] rule, so
+   the attribute silently stops working. Settle it once, here. */
+[hidden] { display: none !important; }
+
+body {
+  background: var(--void);
+  color: var(--text);
+  font: 400 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* ---------- chrome ---------- */
+
+.chrome {
+  position: relative;
+  z-index: 4;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  min-height: var(--chrome-h);
+  background: linear-gradient(180deg, rgba(14, 6, 26, 0.94), rgba(11, 4, 21, 0.78));
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+.chrome::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: var(--spectrum);
+  opacity: 0.7;
+}
+
+.brand {
+  font-family: Anton, Impact, "Arial Narrow Bold", sans-serif;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.055em;
+  background: var(--sunset);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255, 43, 144, 0.45));
+  text-decoration: none;
+  user-select: none;
+}
+
+.spacer { flex: 1; }
+
+.tabs { display: flex; gap: 2px; }
+.tab {
+  padding: 7px 13px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.16s, background 0.16s;
+}
+.tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.tab[aria-current="page"] { color: var(--text); background: rgba(255, 43, 144, 0.16); }
+
+/* ---------- controls ---------- */
+
+.icon {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font: 15px/1 Inter, sans-serif;
+  cursor: pointer;
+  transition: color 0.16s, border-color 0.16s, background 0.16s, box-shadow 0.16s, transform 0.16s;
+}
+.icon:hover:not(:disabled) {
+  color: var(--text);
+  border-color: rgba(255, 43, 144, 0.65);
+  background: rgba(255, 43, 144, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 43, 144, 0.10);
+}
+.icon:active:not(:disabled) { transform: scale(0.93); }
+.icon:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font: 500 13px/1 Inter, sans-serif;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s, transform 0.16s, filter 0.16s;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-primary {
+  border: 0;
+  background: var(--sunset);
+  color: #2a0616;
+  font-family: Anton, Impact, sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.09em;
+  box-shadow: 0 2px 18px rgba(255, 43, 144, 0.3);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.12); box-shadow: 0 2px 26px rgba(255, 43, 144, 0.46); }
+
+.input {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--text);
+  font: 400 14px/1 Inter, sans-serif;
+  transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+}
+.input::placeholder { color: rgba(168, 144, 194, 0.7); }
+.input:focus {
+  outline: none;
+  border-color: rgba(255, 43, 144, 0.8);
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 4px rgba(255, 43, 144, 0.13);
+}
+
+.label {
+  display: block;
+  margin-bottom: 7px;
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- status ---------- */
+
+.pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3);
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 auto;
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.dot[data-state="booting"] { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1.3s ease-in-out infinite; }
+.dot[data-state="ready"]   { background: var(--ok);  box-shadow: 0 0 10px var(--ok); }
+.dot[data-state="error"]   { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.notice {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 77, 94, 0.4);
+  background: rgba(255, 77, 94, 0.12);
+  color: #ffb3ba;
+  font-size: 13px;
+}
+.notice.good {
+  border-color: rgba(57, 224, 138, 0.4);
+  background: rgba(57, 224, 138, 0.1);
+  color: #9af0c4;
+}
+
+/* ---------- type ---------- */
+
+.eyebrow {
+  margin: 0;
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(255, 196, 107, 0.9);
+  text-shadow: 0 0 18px rgba(226, 143, 72, 0.5);
+}
+
+.wordmark {
+  margin: 0;
+  font-family: Anton, Impact, "Arial Narrow Bold", sans-serif;
+  line-height: 0.84;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #fff2f8 2%, var(--amber) 26%, var(--coral) 52%, var(--pink) 76%, var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 6px 34px rgba(255, 43, 144, 0.5));
+}
+
+.rule {
+  width: 54px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--sunset);
+  box-shadow: 0 0 16px rgba(255, 43, 144, 0.65);
+}
+
+/* ---------- scene ---------- */
+
+.scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* Same artwork as a background layer. Anchored bottom-right so a wide screen
+   crops vertically and keeps the horizon, while a tall screen crops
+   horizontally and keeps the sun. */
+.scene-bg {
+  position: absolute;
+  inset: 0;
+  background: url("/scene.svg") right bottom / cover no-repeat;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(7, 3, 17, 0.94) 0%, rgba(7, 3, 17, 0.72) 34%, rgba(7, 3, 17, 0.12) 62%, transparent 78%),
+    linear-gradient(180deg, rgba(7, 3, 17, 0.55) 0%, transparent 26%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+}
