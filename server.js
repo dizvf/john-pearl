@@ -337,13 +337,28 @@ server.on("upgrade", (req, socket, head) => {
 server.listen(port, () => console.log(`listening on :${port}`));
 
 // Only now, with the proxy already serving, do we go and find a database.
-openStorage()
-  .then((opened) => {
-    store = opened;
-    accountRoutes = buildAccountRoutes(opened);
-    console.log("accounts and chat are ready");
-  })
-  .catch((error) => {
-    console.error("accounts and chat are unavailable:", error?.message || error);
-    console.error(error?.stack || "");
-  });
+// A database created moments ago may still be coming up, so keep trying for a
+// while rather than needing a redeploy to pick it up.
+(async () => {
+  const waits = [0, 3_000, 8_000, 20_000, 45_000, 90_000];
+  for (let attempt = 0; attempt < waits.length; attempt++) {
+    if (waits[attempt]) await new Promise((r) => setTimeout(r, waits[attempt]));
+    try {
+      const opened = await openStorage();
+      store = opened;
+      accountRoutes = buildAccountRoutes(opened);
+      console.log("accounts and chat are ready");
+      return;
+    } catch (error) {
+      const last = attempt === waits.length - 1;
+      console.error(
+        `storage attempt ${attempt + 1}/${waits.length} failed: ${error?.message || error}` +
+        (last ? "" : " — retrying")
+      );
+      if (last) {
+        console.error("accounts and chat stay unavailable; the proxy is unaffected");
+        console.error(error?.stack || "");
+      }
+    }
+  }
+})();

@@ -75,10 +75,14 @@ container. The trade is that it holds everything in one process, so accounts
 and messages vanish when it restarts and two nodes would not see the same
 data.
 
-**Before anyone relies on it**, create a database (Enzonic Databases has a free
-tier on the same account) and put its connection string in Enzonic's
-environment variables as `DATABASE_URL`. Nothing else changes. Set
-`DATABASE_SSL=off` if your database does not use TLS.
+**Before anyone relies on it**, create a Postgres database (Enzonic Databases
+has a free tier on the same account) and put its connection string in Enzonic's
+environment variables as `DATABASE_URL`. Nothing else changes.
+
+TLS is worked out automatically: the connection is tried with TLS and then
+without, and whichever answers is kept. Set `DATABASE_SSL` to `on` or `off`
+only if you want to pin it. A database that is still starting up is retried for
+about three minutes, so it does not need a redeploy to be picked up.
 
 The schema is created automatically at startup.
 
