@@ -3,132 +3,517 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0416" />
 <title>Pearl</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
 <style>
   :root {
-    --bg: #0e1013;
-    --surface: #171a1f;
-    --surface-2: #1f242b;
-    --border: #2b323b;
-    --text: #e7ecf2;
-    --muted: #8b95a3;
-    --accent: #5b9cf8;
-    --ok: #3fb950;
-    --warn: #d29922;
-    --err: #f85149;
+    /* Sampled from the GTA VI logo gradient: blue and violet at the top,
+       hot pink through the middle, orange at the base. Rockstar publishes no
+       official values, so these are approximations. */
+    --blue:    #3b63d6;
+    --violet:  #9b55c6;
+    --pink:    #ff2b90;
+    --magenta: #f648ac;
+    --coral:   #eb6a7c;
+    --orange:  #e28f48;
+    --amber:   #ffc46b;
+
+    --void:  #070311;
+    --ink:   #0d0618;
+    --text:  #f7eefb;
+    --muted: #a890c2;
+    --line:  rgba(255, 255, 255, 0.10);
+
+    --sunset: linear-gradient(90deg, var(--pink), var(--coral) 55%, var(--amber));
+    --chrome-h: 58px;
   }
+
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
+
   body {
-    background: var(--bg);
+    background: var(--void);
     color: var(--text);
-    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 400 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
 
-  header {
+  /* Film grain over everything. Low opacity -- it should read as texture,
+     not as noise. */
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  /* ---------- browser chrome ---------- */
+
+  .chrome {
+    position: relative;
+    z-index: 4;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 14px;
+    min-height: var(--chrome-h);
+    background: linear-gradient(180deg, rgba(14, 6, 26, 0.94), rgba(11, 4, 21, 0.78));
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
   }
+  /* The one hairline that carries the whole palette. */
+  .chrome::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--blue), var(--violet), var(--pink), var(--coral), var(--amber));
+    opacity: 0.7;
+  }
+
   .brand {
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    margin-right: 4px;
-    display: flex;
+    font-family: Anton, Impact, "Arial Narrow Bold", sans-serif;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: 0.055em;
+    background: var(--sunset);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 14px rgba(255, 43, 144, 0.45));
+    padding-right: 4px;
+    user-select: none;
+  }
+
+  .nav { display: flex; gap: 5px; }
+
+  .icon {
+    width: 32px; height: 32px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--muted);
+    font: 15px/1 Inter, sans-serif;
+    cursor: pointer;
+    transition: color 0.16s, border-color 0.16s, background 0.16s, box-shadow 0.16s, transform 0.16s;
+  }
+  .icon:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(255, 43, 144, 0.65);
+    background: rgba(255, 43, 144, 0.12);
+    box-shadow: 0 0 0 3px rgba(255, 43, 144, 0.10);
+  }
+  .icon:active:not(:disabled) { transform: scale(0.93); }
+  .icon:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  form { display: flex; flex: 1 1 260px; gap: 8px; min-width: 180px; align-items: center; }
+
+  .field { position: relative; flex: 1; display: flex; align-items: center; min-width: 0; }
+  .field::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--pink);
+    box-shadow: 0 0 9px var(--pink);
+    opacity: 0.75;
+  }
+
+  #url {
+    width: 100%;
+    height: 38px;
+    padding: 0 16px 0 31px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.42);
+    color: var(--text);
+    font: 500 13.5px/1 Inter, sans-serif;
+    letter-spacing: 0.01em;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  }
+  #url::placeholder {
+    color: rgba(168, 144, 194, 0.72);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    font-size: 11.5px;
+    text-transform: uppercase;
+  }
+  #url:focus {
+    outline: none;
+    border-color: rgba(255, 43, 144, 0.8);
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0 4px rgba(255, 43, 144, 0.13), 0 0 22px rgba(255, 43, 144, 0.22);
+  }
+
+  .go {
+    height: 38px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--sunset);
+    color: #2a0616;
+    font-family: Anton, Impact, sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.09em;
+    cursor: pointer;
+    transition: filter 0.16s, transform 0.16s, box-shadow 0.16s;
+    box-shadow: 0 2px 18px rgba(255, 43, 144, 0.3);
+  }
+  .go:hover:not(:disabled) { filter: brightness(1.12); box-shadow: 0 2px 26px rgba(255, 43, 144, 0.46); }
+  .go:active:not(:disabled) { transform: scale(0.96); }
+  .go:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+  /* Status pip: the one piece of chrome that is always telling the truth. */
+  .pip {
+    display: inline-flex;
     align-items: center;
     gap: 7px;
+    padding: 5px 12px 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.3);
+    font: 500 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .dot {
-    width: 9px; height: 9px; border-radius: 50%;
+    width: 7px; height: 7px;
+    border-radius: 50%;
     background: var(--muted);
-    transition: background 0.2s;
+    flex: 0 0 auto;
+    transition: background 0.25s, box-shadow 0.25s;
   }
-  .dot[data-state="booting"] { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
-  .dot[data-state="ready"]   { background: var(--ok); }
-  .dot[data-state="error"]   { background: var(--err); }
-  @keyframes pulse { 50% { opacity: 0.35; } }
+  .dot[data-state="booting"] { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1.3s ease-in-out infinite; }
+  .dot[data-state="ready"]   { background: #39e08a; box-shadow: 0 0 10px #39e08a; }
+  .dot[data-state="error"]   { background: #ff4d5e; box-shadow: 0 0 10px #ff4d5e; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
 
-  button {
-    background: var(--surface-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    padding: 7px 11px;
-    font: inherit;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  button:hover:not(:disabled) { background: #272d36; border-color: #3a434f; }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .nav { display: flex; gap: 6px; }
+  /* ---------- viewport ---------- */
 
-  form { display: flex; flex: 1 1 320px; gap: 6px; min-width: 240px; }
-  input {
-    flex: 1;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    padding: 8px 12px;
-    font: inherit;
-    min-width: 0;
-  }
-  input:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgb(91 156 248 / 0.15);
-  }
-  .go { background: var(--accent); border-color: var(--accent); color: #07101f; font-weight: 600; }
-  .go:hover:not(:disabled) { background: #74adfa; border-color: #74adfa; }
+  main { position: relative; flex: 1; min-height: 0; background: #000; }
 
-  main { flex: 1; position: relative; background: #000; }
   iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 
-  .splash {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 10px; padding: 24px; text-align: center;
-    background: var(--bg); color: var(--muted);
+  .loadbar {
+    position: absolute;
+    top: 0; left: 0;
+    height: 2px;
+    width: 0;
+    z-index: 5;
+    background: var(--sunset);
+    box-shadow: 0 0 12px rgba(255, 43, 144, 0.8);
+    opacity: 0;
+    transition: width 0.5s ease, opacity 0.3s;
   }
-  .splash h1 { color: var(--text); font-size: 20px; margin: 0; font-weight: 650; }
-  .splash code {
-    background: var(--surface-2); padding: 2px 6px;
-    border-radius: 4px; font-size: 12px; color: var(--text);
-  }
+  .loadbar.run { width: 82%; opacity: 1; transition: width 9s cubic-bezier(0.1, 0.8, 0.2, 1), opacity 0.2s; }
+  .loadbar.done { width: 100%; opacity: 0; transition: width 0.25s, opacity 0.45s 0.15s; }
+
+  /* ---------- splash ---------- */
+
+  .splash { position: absolute; inset: 0; overflow: hidden; background: var(--ink); }
   .splash.hidden { display: none; }
-  .status { font-size: 12.5px; color: var(--muted); }
-  .status[data-state="error"] { color: var(--err); max-width: 50ch; }
+
+  .scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Guarantees contrast for the copy no matter what the art is doing behind
+     it -- the type is left-anchored, so the scrim is heaviest on the left. */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(7, 3, 17, 0.94) 0%, rgba(7, 3, 17, 0.72) 34%, rgba(7, 3, 17, 0.12) 62%, transparent 78%),
+      linear-gradient(180deg, rgba(7, 3, 17, 0.55) 0%, transparent 26%);
+  }
+
+  .copy {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    text-align: left;
+    padding: 0 clamp(22px, 7vw, 116px);
+    gap: 15px;
+    max-width: min(780px, 94%);
+  }
+
+  .rule {
+    width: 54px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--sunset);
+    box-shadow: 0 0 16px rgba(255, 43, 144, 0.65);
+  }
+
+  .eyebrow {
+    margin: 0;
+    font: 500 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: rgba(255, 196, 107, 0.9);
+    text-shadow: 0 0 18px rgba(226, 143, 72, 0.5);
+  }
+
+  .wordmark {
+    margin: 0;
+    font-family: Anton, Impact, "Arial Narrow Bold", sans-serif;
+    font-size: clamp(60px, 15vw, 148px);
+    line-height: 0.84;
+    letter-spacing: 0.02em;
+    background: linear-gradient(180deg, #fff2f8 2%, var(--amber) 26%, var(--coral) 52%, var(--pink) 76%, var(--violet));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 6px 34px rgba(255, 43, 144, 0.5));
+  }
+
+  .tagline {
+    margin: 0;
+    max-width: 34ch;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: rgba(247, 238, 251, 0.74);
+  }
+
+  .splash-status {
+    margin: 6px 0 0;
+    max-width: 46ch;
+    font: 500 11.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .splash-status[data-state="error"] {
+    color: #ff8e99;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-size: 12.5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  }
+
+  @media (max-width: 720px) {
+    :root { --chrome-h: 54px; }
+    .chrome { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+    .brand { font-size: 20px; }
+    form { order: 3; flex-basis: 100%; }
+    .pip { max-width: none; margin-left: auto; }
+    .icon { width: 30px; height: 30px; }
+
+    /* The copy spans the full width here, so the scrim runs bottom-up
+       instead of left-right: skyline on top, type beneath it. */
+    .scrim {
+      background: linear-gradient(
+        180deg,
+        rgba(7, 3, 17, 0.72) 0%,
+        rgba(7, 3, 17, 0.18) 26%,
+        rgba(7, 3, 17, 0.8) 58%,
+        rgba(7, 3, 17, 0.97) 100%
+      );
+    }
+    .copy {
+      justify-content: flex-end;
+      padding: 0 24px clamp(26px, 8vh, 64px);
+      max-width: 100%;
+      gap: 13px;
+    }
+    .wordmark { font-size: clamp(64px, 18vw, 150px); }
+    .tagline { max-width: 32ch; }
+  }
 </style>
 </head>
 <body>
 
-<header>
-  <span class="brand"><span class="dot" id="dot" data-state="booting"></span>Pearl</span>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="chrome">
+  <span class="brand">PEARL</span>
+
   <div class="nav">
-    <button id="back"    title="Back"    disabled>&larr;</button>
-    <button id="forward" title="Forward" disabled>&rarr;</button>
-    <button id="reload"  title="Reload"  disabled>&#8635;</button>
+    <button class="icon" id="back"    title="Back"    aria-label="Back"    disabled>&#8592;</button>
+    <button class="icon" id="forward" title="Forward" aria-label="Forward" disabled>&#8594;</button>
+    <button class="icon" id="reload"  title="Reload"  aria-label="Reload"  disabled>&#8635;</button>
   </div>
-  <form id="bar">
-    <input id="url" type="text" placeholder="Search, or enter a URL" autocomplete="off" spellcheck="false" />
-    <button class="go" id="go" type="submit" disabled>Go</button>
+
+  <form id="bar" autocomplete="off">
+    <span class="field">
+      <input id="url" type="text" placeholder="Enter a site or search" spellcheck="false" aria-label="Address" />
+    </span>
+    <button class="go" id="go" type="submit" disabled>GO</button>
   </form>
+
+  <span class="pip">
+    <span class="dot" id="dot" data-state="booting"></span>
+    <span id="status">Booting</span>
+  </span>
 </header>
 
 <main>
+  <div class="loadbar" id="loadbar"></div>
   <iframe id="frame" title="Proxied page"></iframe>
+
   <div class="splash" id="splash">
-    <h1>Pearl</h1>
-    <p class="status" id="status">Starting the proxy&hellip;</p>
-    <p class="status">Type a site above, or a search term. Everything is fetched by
-      the <code>/wisp/</code> tunnel on this server.</p>
+    <!-- Vice City at sunset: striped sun, neon grid, skyline on the horizon. -->
+    <!-- Anchored bottom-right. A wide screen crops vertically, so YMax keeps
+         the horizon; a tall screen crops horizontally, so xMax keeps the sun
+         rather than centring on empty bay. -->
+    <svg class="scene" viewBox="0 0 1200 800" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#120626" />
+          <stop offset="34%"  stop-color="#2d0b44" />
+          <stop offset="58%"  stop-color="#6d1458" />
+          <stop offset="78%"  stop-color="#b8275f" />
+          <stop offset="100%" stop-color="#2a0730" />
+        </linearGradient>
+
+        <linearGradient id="sunG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#fff0b8" />
+          <stop offset="32%"  stop-color="#ffb347" />
+          <stop offset="64%"  stop-color="#ff4fa0" />
+          <stop offset="100%" stop-color="#c21e8a" />
+        </linearGradient>
+
+        <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0%"   stop-color="#ff2b90" stop-opacity="0.55" />
+          <stop offset="100%" stop-color="#ff2b90" stop-opacity="0" />
+        </radialGradient>
+
+        <linearGradient id="grid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#ff2b90" stop-opacity="0.05" />
+          <stop offset="35%"  stop-color="#ff2b90" stop-opacity="0.5" />
+          <stop offset="100%" stop-color="#3b63d6" stop-opacity="0.65" />
+        </linearGradient>
+
+        <linearGradient id="tower" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#1b0a2e" />
+          <stop offset="100%" stop-color="#2a0c38" />
+        </linearGradient>
+
+        <!-- Solid at the top, thinning bands toward the horizon, nothing
+             below it -- the sun sets behind the skyline rather than bleeding
+             over the grid. -->
+        <mask id="sunMask">
+          <rect x="0" y="0" width="1200" height="800" fill="black" />
+          <rect x="0" y="0"   width="1200" height="396" fill="white" />
+          <rect x="0" y="401" width="1200" height="7"   fill="white" />
+          <rect x="0" y="413" width="1200" height="6"   fill="white" />
+          <rect x="0" y="426" width="1200" height="5"   fill="white" />
+          <rect x="0" y="440" width="1200" height="4"   fill="white" />
+          <rect x="0" y="454" width="1200" height="3.2" fill="white" />
+          <rect x="0" y="465" width="1200" height="2.4" fill="white" />
+        </mask>
+      </defs>
+
+      <rect width="1200" height="800" fill="url(#sky)" />
+
+      <g fill="#fff6ff">
+        <circle cx="118"  cy="72"  r="1.5" opacity="0.5" />
+        <circle cx="286"  cy="128" r="1.1" opacity="0.35" />
+        <circle cx="402"  cy="58"  r="1.3" opacity="0.4" />
+        <circle cx="548"  cy="162" r="1"   opacity="0.3" />
+        <circle cx="676"  cy="92"  r="1.6" opacity="0.45" />
+        <circle cx="824"  cy="46"  r="1.1" opacity="0.32" />
+        <circle cx="948"  cy="146" r="1.4" opacity="0.38" />
+        <circle cx="1078" cy="84"  r="1.2" opacity="0.3" />
+        <circle cx="1158" cy="196" r="1"   opacity="0.26" />
+        <circle cx="212"  cy="214" r="1.1" opacity="0.24" />
+      </g>
+
+      <ellipse cx="860" cy="466" rx="430" ry="190" fill="url(#glow)" />
+      <circle cx="860" cy="392" r="150" fill="url(#sunG)" mask="url(#sunMask)" />
+
+      <!-- Skyline, sitting on the horizon at y=470 -->
+      <g fill="url(#tower)">
+        <rect x="18"   y="372" width="54" height="98" />
+        <rect x="80"   y="410" width="38" height="60" />
+        <rect x="126"  y="338" width="46" height="132" />
+        <rect x="180"  y="396" width="60" height="74" />
+        <rect x="248"  y="300" width="42" height="170" />
+        <rect x="298"  y="382" width="52" height="88" />
+        <rect x="358"  y="420" width="44" height="50" />
+        <rect x="424"  y="436" width="36" height="34" />
+        <rect x="464"  y="449" width="26" height="21" />
+        <rect x="684"  y="432" width="38" height="38" />
+        <rect x="770"  y="408" width="48" height="62" />
+        <rect x="826"  y="346" width="40" height="124" />
+        <rect x="874"  y="392" width="58" height="78" />
+        <rect x="940"  y="316" width="44" height="154" />
+        <rect x="992"  y="400" width="50" height="70" />
+        <rect x="1050" y="364" width="62" height="106" />
+        <rect x="1120" y="414" width="46" height="56" />
+      </g>
+      <g stroke="#2a0c38" stroke-width="2">
+        <line x1="269" y1="300" x2="269" y2="272" />
+        <line x1="962" y1="316" x2="962" y2="286" />
+      </g>
+      <!-- lit windows -->
+      <g fill="#ffc46b" opacity="0.5">
+        <rect x="30"   y="388" width="4" height="7" /><rect x="42" y="404" width="4" height="7" />
+        <rect x="138"  y="356" width="4" height="7" /><rect x="152" y="382" width="4" height="7" />
+        <rect x="258"  y="322" width="4" height="7" /><rect x="272" y="350" width="4" height="7" />
+        <rect x="258"  y="394" width="4" height="7" /><rect x="310" y="400" width="4" height="7" />
+        <rect x="838"  y="368" width="4" height="7" /><rect x="852" y="402" width="4" height="7" />
+        <rect x="950"  y="338" width="4" height="7" /><rect x="964" y="372" width="4" height="7" />
+        <rect x="1062" y="386" width="4" height="7" /><rect x="1086" y="418" width="4" height="7" />
+      </g>
+
+      <rect x="0" y="468" width="1200" height="3" fill="#ff6aa8" opacity="0.5" />
+
+      <!-- Neon floor receding to the vanishing point -->
+      <g stroke="url(#grid)" stroke-width="1.1" fill="none">
+        <line x1="600" y1="470" x2="-620" y2="800" /><line x1="600" y1="470" x2="-330" y2="800" />
+        <line x1="600" y1="470" x2="-110" y2="800" /><line x1="600" y1="470" x2="60"   y2="800" />
+        <line x1="600" y1="470" x2="200"  y2="800" /><line x1="600" y1="470" x2="320"  y2="800" />
+        <line x1="600" y1="470" x2="425"  y2="800" /><line x1="600" y1="470" x2="518"  y2="800" />
+        <line x1="600" y1="470" x2="600"  y2="800" /><line x1="600" y1="470" x2="682"  y2="800" />
+        <line x1="600" y1="470" x2="775"  y2="800" /><line x1="600" y1="470" x2="880"  y2="800" />
+        <line x1="600" y1="470" x2="1000" y2="800" /><line x1="600" y1="470" x2="1140" y2="800" />
+        <line x1="600" y1="470" x2="1310" y2="800" /><line x1="600" y1="470" x2="1530" y2="800" />
+        <line x1="600" y1="470" x2="1820" y2="800" />
+
+        <line x1="0" y1="477" x2="1200" y2="477" /><line x1="0" y1="487" x2="1200" y2="487" />
+        <line x1="0" y1="500" x2="1200" y2="500" /><line x1="0" y1="517" x2="1200" y2="517" />
+        <line x1="0" y1="539" x2="1200" y2="539" /><line x1="0" y1="567" x2="1200" y2="567" />
+        <line x1="0" y1="603" x2="1200" y2="603" /><line x1="0" y1="649" x2="1200" y2="649" />
+        <line x1="0" y1="707" x2="1200" y2="707" /><line x1="0" y1="779" x2="1200" y2="779" />
+      </g>
+    </svg>
+
+    <div class="scrim"></div>
+
+    <div class="copy">
+      <span class="rule"></span>
+      <p class="eyebrow">Encrypted relay &middot; Leonida</p>
+      <h1 class="wordmark">PEARL</h1>
+      <p class="tagline">Every request leaves from your server, not your browser.</p>
+      <p class="splash-status" id="splashStatus">Starting the proxy&hellip;</p>
+    </div>
   </div>
 </main>
 
@@ -136,8 +521,10 @@
 const els = {
   dot: document.getElementById("dot"),
   status: document.getElementById("status"),
+  splashStatus: document.getElementById("splashStatus"),
   splash: document.getElementById("splash"),
   frame: document.getElementById("frame"),
+  loadbar: document.getElementById("loadbar"),
   url: document.getElementById("url"),
   go: document.getElementById("go"),
   back: document.getElementById("back"),
@@ -146,10 +533,22 @@ const els = {
   bar: document.getElementById("bar"),
 };
 
-function setState(state, message) {
+function setState(state, short, detail) {
   els.dot.dataset.state = state;
-  els.status.dataset.state = state;
-  els.status.textContent = message;
+  els.status.textContent = short;
+  els.splashStatus.dataset.state = state;
+  els.splashStatus.textContent = detail || short;
+}
+
+function startLoading() {
+  els.loadbar.classList.remove("done");
+  void els.loadbar.offsetWidth;
+  els.loadbar.classList.add("run");
+  clearTimeout(startLoading.timer);
+  startLoading.timer = setTimeout(() => {
+    els.loadbar.classList.remove("run");
+    els.loadbar.classList.add("done");
+  }, 2600);
 }
 
 // "example.com" -> https://example.com ; "how to cook rice" -> a search.
@@ -233,11 +632,8 @@ async function boot() {
   if (typeof controller.wait === "function") await controller.wait();
   frame = controller.createFrame(els.frame, { plugins: [] });
 
-  els.go.disabled = false;
-  els.back.disabled = false;
-  els.forward.disabled = false;
-  els.reload.disabled = false;
-  setState("ready", "Ready.");
+  for (const b of [els.go, els.back, els.forward, els.reload]) b.disabled = false;
+  setState("ready", "Ready", "Ready — enter a site above");
   els.url.focus();
 }
 
@@ -246,16 +642,17 @@ els.bar.addEventListener("submit", (event) => {
   const target = normalize(els.url.value);
   if (!target || !frame) return;
   els.splash.classList.add("hidden");
+  startLoading();
   frame.go(target);
 });
 
-els.back.addEventListener("click", () => frame?.back());
-els.forward.addEventListener("click", () => frame?.forward());
-els.reload.addEventListener("click", () => frame?.reload());
+els.back.addEventListener("click", () => { if (frame) { startLoading(); frame.back(); } });
+els.forward.addEventListener("click", () => { if (frame) { startLoading(); frame.forward(); } });
+els.reload.addEventListener("click", () => { if (frame) { startLoading(); frame.reload(); } });
 
 boot().catch((error) => {
   console.error(error);
-  setState("error", error.message || String(error));
+  setState("error", "Error", error.message || String(error));
 });
 </script>
 </body>
