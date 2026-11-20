@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pearl</title>
+<style>
+  :root {
+    --bg: #0e1013;
+    --surface: #171a1f;
+    --surface-2: #1f242b;
+    --border: #2b323b;
+    --text: #e7ecf2;
+    --muted: #8b95a3;
+    --accent: #5b9cf8;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .brand {
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.2s;
+  }
+  .dot[data-state="booting"] { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+  .dot[data-state="ready"]   { background: var(--ok); }
+  .dot[data-state="error"]   { background: var(--err); }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+
+  button {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover:not(:disabled) { background: #272d36; border-color: #3a434f; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .nav { display: flex; gap: 6px; }
+
+  form { display: flex; flex: 1 1 320px; gap: 6px; min-width: 240px; }
+  input {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    font: inherit;
+    min-width: 0;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgb(91 156 248 / 0.15);
+  }
+  .go { background: var(--accent); border-color: var(--accent); color: #07101f; font-weight: 600; }
+  .go:hover:not(:disabled) { background: #74adfa; border-color: #74adfa; }
+
+  main { flex: 1; position: relative; background: #000; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+  .splash {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; text-align: center;
+    background: var(--bg); color: var(--muted);
+  }
+  .splash h1 { color: var(--text); font-size: 20px; margin: 0; font-weight: 650; }
+  .splash code {
+    background: var(--surface-2); padding: 2px 6px;
+    border-radius: 4px; font-size: 12px; color: var(--text);
+  }
+  .splash.hidden { display: none; }
+  .status { font-size: 12.5px; color: var(--muted); }
+  .status[data-state="error"] { color: var(--err); max-width: 50ch; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand"><span class="dot" id="dot" data-state="booting"></span>Pearl</span>
+  <div class="nav">
+    <button id="back"    title="Back"    disabled>&larr;</button>
+    <button id="forward" title="Forward" disabled>&rarr;</button>
+    <button id="reload"  title="Reload"  disabled>&#8635;</button>
+  </div>
+  <form id="bar">
+    <input id="url" type="text" placeholder="Search, or enter a URL" autocomplete="off" spellcheck="false" />
+    <button class="go" id="go" type="submit" disabled>Go</button>
+  </form>
+</header>
+
+<main>
+  <iframe id="frame" title="Proxied page"></iframe>
+  <div class="splash" id="splash">
+    <h1>Pearl</h1>
+    <p class="status" id="status">Starting the proxy&hellip;</p>
+    <p class="status">Type a site above, or a search term. Everything is fetched by
+      the <code>/wisp/</code> tunnel on this server.</p>
+  </div>
+</main>
+
+<!-- Served by the server's bootstrap, which also fetches the controller,
+     the transport and the scramjet runtime at versions it knows agree. -->
+<script src="/bootstrap-init.js"></script>
+<script>
+const els = {
+  dot: document.getElementById("dot"),
+  status: document.getElementById("status"),
+  splash: document.getElementById("splash"),
+  frame: document.getElementById("frame"),
+  url: document.getElementById("url"),
+  go: document.getElementById("go"),
+  back: document.getElementById("back"),
+  forward: document.getElementById("forward"),
+  reload: document.getElementById("reload"),
+  bar: document.getElementById("bar"),
+};
+
+function setState(state, message) {
+  els.dot.dataset.state = state;
+  els.status.dataset.state = state;
+  els.status.textContent = message;
+}
+
+// "example.com" -> https://example.com ; "how to cook rice" -> a search.
+function normalize(input) {
+  const value = input.trim();
+  if (!value) return null;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return value;
+  if (/^[^\s/?#:]+\.[^\s/?#:]{2,}([/?#]|$)/.test(value)) return "https://" + value;
+  return "https://duckduckgo.com/?q=" + encodeURIComponent(value);
+}
+
+let frame = null;
+
+async function boot() {
+  if (!window.isSecureContext) {
+    throw new Error(
+      "This page needs HTTPS (or localhost). Service workers are disabled on plain http:// origins, " +
+      "and the proxy cannot run without one."
+    );
+  }
+  if (!("serviceWorker" in navigator)) {
+    throw new Error("This browser has no service worker support, so the proxy cannot run.");
+  }
+
+  // Registers /sw.js, builds the Wisp transport against this origin, and
+  // hands back a ready Controller.
+  const controller = await initBootstrap();
+  if (typeof controller.wait === "function") await controller.wait();
+
+  frame = controller.createFrame(els.frame, { plugins: [] });
+
+  els.go.disabled = false;
+  els.back.disabled = false;
+  els.forward.disabled = false;
+  els.reload.disabled = false;
+  setState("ready", "Ready.");
+  els.url.focus();
+}
+
+els.bar.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const target = normalize(els.url.value);
+  if (!target || !frame) return;
+  els.splash.classList.add("hidden");
+  frame.go(target);
+});
+
+els.back.addEventListener("click", () => frame?.back());
+els.forward.addEventListener("click", () => frame?.forward());
+els.reload.addEventListener("click", () => frame?.reload());
+
+boot().catch((error) => {
+  console.error(error);
+  setState("error", error.message || String(error));
+});
+</script>
+</body>
+</html>
