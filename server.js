@@ -383,29 +383,30 @@ server.on("upgrade", (req, socket, head) => {
 server.listen(port, () => console.log(`listening on :${port}`));
 
 // Only now, with the proxy already serving, do we go and find a database.
-// A database created moments ago may still be coming up, so keep trying for a
-// while rather than needing a redeploy to pick it up.
+// Keep trying for as long as the process lives. Deploys on this host are slow
+// and can fail for reasons of their own, so a database that becomes reachable
+// later should bring chat up on its own rather than needing another build.
 (async () => {
-  const waits = [0, 3_000, 8_000, 20_000, 45_000, 90_000];
-  for (let attempt = 0; attempt < waits.length; attempt++) {
-    if (waits[attempt]) await new Promise((r) => setTimeout(r, waits[attempt]));
+  const opening = [0, 3_000, 8_000, 20_000, 45_000];
+  const settled = 60_000;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  for (let attempt = 0; ; attempt++) {
+    const wait = attempt < opening.length ? opening[attempt] : settled;
+    if (wait) await sleep(wait);
     try {
       const opened = await openStorage();
       store = opened;
       accountRoutes = buildAccountRoutes(opened);
       storageStatus = `ready:${opened.db.backend}`;
-      console.log("accounts and chat are ready");
+      console.log(`accounts and chat are ready (after ${attempt + 1} attempt(s))`);
       return;
     } catch (error) {
-      const last = attempt === waits.length - 1;
-      storageStatus = `${last ? "failed" : "retrying"}:${classify(error)} ${scrub(error?.message)}`;
-      console.error(
-        `storage attempt ${attempt + 1}/${waits.length} failed: ${error?.message || error}` +
-        (last ? "" : " — retrying")
-      );
-      if (last) {
-        console.error("accounts and chat stay unavailable; the proxy is unaffected");
-        console.error(error?.stack || "");
+      const settling = attempt >= opening.length;
+      storageStatus = `${settling ? "waiting" : "retrying"}:${classify(error)} ${scrub(error?.message)}`;
+      // Noisy at first, then once every ten minutes, so the log stays readable.
+      if (!settling || attempt % 10 === 0) {
+        console.error(`storage attempt ${attempt + 1} failed: ${error?.message || error}`);
       }
     }
   }
