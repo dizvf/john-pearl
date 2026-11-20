@@ -32,13 +32,15 @@ let storageStatus = "starting";
  */
 function scrub(text) {
   let out = String(text || "");
-  try {
-    const url = new URL(process.env.DATABASE_URL || "");
-    const parts = [url.password, url.username, url.hostname, url.pathname.slice(1)];
-    for (const part of parts) {
-      if (part && part.length > 2) out = out.split(part).join("…");
-    }
-  } catch { /* no usable URL, nothing to strip */ }
+  for (const raw of [process.env.DATABASE_URL, process.env.DATABASE_URL_UNPOOLED]) {
+    try {
+      const url = new URL(raw || "");
+      const parts = [url.password, url.username, url.hostname, url.pathname.slice(1)];
+      for (const part of parts) {
+        if (part && part.length > 2) out = out.split(part).join("…");
+      }
+    } catch { /* no usable URL, nothing to strip */ }
+  }
   return out.replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "…").slice(0, 160);
 }
 
