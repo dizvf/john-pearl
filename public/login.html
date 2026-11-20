@@ -186,6 +186,12 @@ els.form.addEventListener("submit", async (event) => {
 try {
   const me = await (await fetch("/api/me")).json();
   if (me.user) location.replace(next);
+  if (me.durable === false) {
+    els.error.textContent =
+      "This server has no database configured. Accounts and sign-ins can vanish between " +
+      "requests, so chat will not work reliably until DATABASE_URL is set.";
+    els.error.hidden = false;
+  }
 } catch { /* offline, show the form */ }
 
 paint();

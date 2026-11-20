@@ -687,6 +687,9 @@ if (!me.user) {
   state.me = me.user;
   await refresh();
   connect();
+  if (me.durable === false) {
+    flash("No database configured: accounts and messages can vanish between requests.");
+  }
 }
 </script>
 </body>

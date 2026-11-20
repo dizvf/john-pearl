@@ -60,8 +60,16 @@ functions and the same row shapes:
 | set | real Postgres (`lib/pgstore.js`) | survives deploys, shared across nodes |
 | not set | plain objects in process (`lib/memstore.js`) | **gone on every restart** |
 
-It runs either way, so you can try it before setting anything up. The fallback
-is deliberately boring — no native module, no WebAssembly, no disk — because
+**On a host that runs more than one instance, the fallback does not work for
+chat at all.** Each instance keeps its own copy, so an account created on one
+does not exist on the other, and requests landing on the wrong instance are
+signed out. Measured on Enzonic: two sign-ups seconds apart were given user
+ids 14 and 1, and the second session was rejected immediately afterwards. The
+proxy is unaffected, because it holds no state. `/api/me` reports
+`durable: false` in this situation and both pages show a warning.
+
+It runs either way, so you can try it locally before setting anything up. The
+fallback is deliberately boring — no native module, no WebAssembly, no disk — because
 anything exotic is one more thing that can refuse to start on a small
 container. The trade is that it holds everything in one process, so accounts
 and messages vanish when it restarts and two nodes would not see the same

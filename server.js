@@ -77,7 +77,10 @@ function buildAccountRoutes({ db, auth, isOnline, pushTo, MAX_BODY }) {
   const publicUser = (u) => ({ id: u.id, username: u.username, handle: u.handle });
 
   app.get("/me", (req, res) => {
-    res.json({ user: req.user ? publicUser(req.user) : null });
+    // `durable` false means this process is holding everything itself, so a
+    // second instance or a restart loses it. The UI warns on the strength of
+    // this rather than letting people hit mystery sign-outs.
+    res.json({ user: req.user ? publicUser(req.user) : null, durable: db.durable });
   });
 
   app.post("/signup", async (req, res) => {
