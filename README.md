@@ -81,7 +81,16 @@ environment variables as `DATABASE_URL`. Nothing else changes.
 
 TLS is worked out automatically: the connection is tried with TLS and then
 without, and whichever answers is kept. Set `DATABASE_SSL` to `on` or `off`
-only if you want to pin it. A database that is still starting up is retried for
+only if you want to pin it.
+
+The `sslmode` in the connection string is deliberately ignored. node-postgres
+parses it out of the URL and it beats the explicit `ssl` option, and this
+version treats `sslmode=require` as `verify-full`, so a managed database whose
+certificate does not chain to a public CA fails with "self-signed certificate"
+whatever else you pass. The connection is still encrypted; the certificate is
+just not verified, which is the normal arrangement for a managed database
+reached over the provider's own network. Set `DATABASE_SSL=verify` to honour
+the URL's own setting and get the strict check back. A database that is still starting up is retried for
 about three minutes, so it does not need a redeploy to be picked up.
 
 The schema is created automatically at startup.
