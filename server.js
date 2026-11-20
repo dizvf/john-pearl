@@ -26,6 +26,22 @@ let storageStatus = "starting";
  * A short, non-identifying reason a connection failed, safe to serve publicly:
  * the error class only, never the host, the user or the connection string.
  */
+/**
+ * Remove anything identifying from an error before it can be served publicly:
+ * the parts of the connection string, and any bare IP address.
+ */
+function scrub(text) {
+  let out = String(text || "");
+  try {
+    const url = new URL(process.env.DATABASE_URL || "");
+    const parts = [url.password, url.username, url.hostname, url.pathname.slice(1)];
+    for (const part of parts) {
+      if (part && part.length > 2) out = out.split(part).join("…");
+    }
+  } catch { /* no usable URL, nothing to strip */ }
+  return out.replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "…").slice(0, 160);
+}
+
 function classify(error) {
   const code = error?.code;
   if (typeof code === "string" && /^[A-Z0-9_]+$/.test(code)) return code;
@@ -380,7 +396,7 @@ server.listen(port, () => console.log(`listening on :${port}`));
       return;
     } catch (error) {
       const last = attempt === waits.length - 1;
-      storageStatus = `${last ? "failed" : "retrying"}:${classify(error)}`;
+      storageStatus = `${last ? "failed" : "retrying"}:${classify(error)} ${scrub(error?.message)}`;
       console.error(
         `storage attempt ${attempt + 1}/${waits.length} failed: ${error?.message || error}` +
         (last ? "" : " — retrying")
